@@ -333,7 +333,52 @@
       .boost-button{
         width:100%;
       }
-    }
+    }.rank-progress-stat {
+  min-width: 220px;
+  flex: 1 1 200px;
+}
+
+.rank-progress {
+  height: 12px;
+  margin: 10px 0 6px;
+}
+
+.rank-progress > span {
+  background: linear-gradient(90deg, #59c6ff, #71f1ff, #c998ff);
+  box-shadow: 0 0 18px #59c6ff;
+  transition: width .2s ease;
+}
+
+#auraCard {
+  font-size: clamp(22px, 5vw, 34px);
+  min-height: 115px;
+  background: radial-gradient(circle, #243e70, #0d1424 75%);
+  animation: auraPulse 2s ease-in-out infinite;
+}
+
+#orb {
+  animation: orbFloat 1.5s ease-in-out infinite;
+}
+
+@keyframes auraPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.4); }
+}
+
+@keyframes orbFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-5px) scale(1.06); }
+}
+
+#auraCard.revealing {
+  animation: auraReveal .3s ease-out;
+}
+
+@keyframes auraReveal {
+  0% { transform: scale(.85); filter: brightness(.5); }
+  70% { transform: scale(1.08); filter: brightness(1.8); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
   </style>
 </head>
 <body>
