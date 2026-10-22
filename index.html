@@ -709,6 +709,40 @@
 
     function getCurrentRank(totalEarned){
       return Math.min(500, 1 + Math.floor(Math.sqrt(Math.max(0, totalEarned) / 100)));
+      
+function updateRankProgress(){
+  const text = document.getElementById("rankProgressText");
+  const bar = document.getElementById("rankProgressBar");
+  const hint = document.getElementById("rankProgressHint");
+
+  if (!text || !bar || !hint) return;
+
+  const total = Math.max(0, Number(s.totalEarned) || 0);
+  const rank = getCurrentRank(total);
+
+  if (rank >= 500) {
+    text.textContent = "MAX RANK!";
+    bar.style.width = "100%";
+    hint.textContent = "You've reached Rank 500!";
+    return;
+  }
+
+  const currentThreshold = 100 * (rank - 1) ** 2;
+  const nextThreshold = 100 * rank ** 2;
+
+  const progress = Math.max(0, Math.min(100,
+    ((total - currentThreshold) /
+      (nextThreshold - currentThreshold)) * 100
+  ));
+
+  text.textContent = progress.toFixed(1) + "%";
+  bar.style.width = progress + "%";
+
+  hint.textContent =
+    fmt(nextThreshold - total) +
+    " points until Rank " + (rank + 1);
+}
+
     }
 
     function getLuckValue(){
