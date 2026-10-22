@@ -68,9 +68,7 @@
       border-radius:14px;
       padding:14px;
     }
-    .stat{
-      min-width:135px;
-    }
+    .stat{min-width:135px}
     .stat b{
       display:block;
       color:var(--blue);
@@ -196,7 +194,7 @@
 
     <section id="index" class="panel hidden">
       <h2>📖 Aura Index</h2>
-      <p class="muted">Discover all 60 normal auras and their base odds. Secret discoveries are listed separately.</p>
+      <p class="muted">Discover all 60 normal auras and their base odds.</p>
       <input id="searchAura" placeholder="Search auras..." oninput="renderIndex()" />
       <div id="auraGrid" class="grid" style="margin-top:12px"></div>
       <h3>🕵️ Secret Auras</h3>
@@ -241,7 +239,7 @@
       <h2>🏆 Personal Records</h2>
       <div class="grid" id="recordGrid"></div>
       <h3>Local Hunter Leaderboard</h3>
-      <p class="muted">This is your personal record board on this device, not a global online leaderboard.</p>
+      <p class="muted">This is your personal record board on this device.</p>
       <div id="leaderboard"></div>
       <button onclick="saveRecord()">Save Current Record</button>
     </section>
@@ -297,7 +295,7 @@
       ["Unbound","mythic",75000000],["Omega","mythic",110000000],["Paradox","mythic",165000000],
       ["Origin","mythic",250000000],["Ascension","mythic",380000000],["Dream Eater","mythic",580000000],
       ["Reality Shaper","mythic",900000000],["Final Light","mythic",1400000000],["The First Aura","mythic",2200000000]
-    ].map((a, i) => ({ id: i, name: a[0], tier: a[1], odds: a[2] }));
+    ].map((a,i)=>({id:i,name:a[0],tier:a[1],odds:a[2]}));
 
     const SECRET_AURAS = [
       { name: "The Forgotten One", condition: "Roll 100 times" },
@@ -356,8 +354,7 @@
         records: [],
         auto: false,
         sound: true,
-        mutations: 0,
-        selectedMode: "classic"
+        mutations: 0
       };
     }
 
@@ -377,7 +374,6 @@
       try {
         const raw = localStorage.getItem("auraHunterSave");
         if (!raw) return defaultSave();
-
         const parsed = JSON.parse(raw);
         const fresh = defaultSave();
 
@@ -396,23 +392,24 @@
 
         return next;
       } catch (error) {
-        console.warn("Failed to load save", error);
+        console.warn("Save load failed", error);
         return defaultSave();
       }
     }
 
     let saveData = loadSave();
-    let s = saveData.modes[saveData.selectedMode];
+    let s = saveData.modes[saveData.selectedMode] || defaultModeState();
     let autoTimer = null;
     let audioCtx = null;
 
     function saveGame() {
       saveData.modes[saveData.selectedMode] = s;
+      saveData.playerName = s.name || saveData.playerName || "Hunter";
       localStorage.setItem("auraHunterSave", JSON.stringify(saveData));
     }
 
-    function getCurrentRank(pointsValue) {
-      return Math.min(500, 1 + Math.floor(Math.sqrt(Math.max(0, pointsValue) / 100)));
+    function getCurrentRank(totalEarned) {
+      return Math.min(500, 1 + Math.floor(Math.sqrt(Math.max(0, totalEarned) / 100)));
     }
 
     function getLuckValue() {
@@ -425,8 +422,9 @@
     }
 
     function show(id) {
-      document.querySelectorAll("main section").forEach(section => section.classList.add("hidden"));
-      document.getElementById(id).classList.remove("hidden");
+      document.querySelectorAll("main section").forEach(sec => sec.classList.add("hidden"));
+      const section = document.getElementById(id);
+      if (section) section.classList.remove("hidden");
       render();
     }
 
@@ -436,15 +434,12 @@
         audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-
         osc.frequency.value = freq;
         osc.type = "sine";
         gain.gain.value = 0.07;
-
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
-
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
         osc.stop(audioCtx.currentTime + duration);
       } catch {}
@@ -452,7 +447,6 @@
 
     function selectMode(modeId) {
       if (!saveData.modes[modeId]) return;
-
       saveData.selectedMode = modeId;
       s = saveData.modes[modeId];
       saveGame();
@@ -492,14 +486,13 @@
       s.rolls++;
       const effectiveLuck = Number(getLuckValue());
       let pool = AURAS.map(a => ({ ...a, weight: 1 / Math.pow(a.odds, 1 / effectiveLuck) }));
-
       const total = pool.reduce((sum, a) => sum + a.weight, 0);
-      let rollVal = Math.random() * total;
+      let randomPick = Math.random() * total;
       let aura = pool[0];
 
       for (const item of pool) {
-        rollVal -= item.weight;
-        if (rollVal <= 0) {
+        randomPick -= item.weight;
+        if (randomPick <= 0) {
           aura = item;
           break;
         }
@@ -507,7 +500,6 @@
 
       let mutation = null;
       const chance = Math.random();
-
       if (chance < 0.015) mutation = "Rainbow";
       else if (chance < 0.045) mutation = "Corrupted";
       else if (chance < 0.10) mutation = "Golden";
@@ -516,9 +508,7 @@
       const isNew = !s.collection[key];
       s.collection[key] = { name: aura.name, tier: aura.tier, odds: aura.odds, mutation };
 
-      if (isNew) {
-        s.points += Math.max(5, Math.floor(aura.odds / 3));
-      }
+      if (isNew) s.points += Math.max(5, Math.floor(aura.odds / 3));
 
       const reward = Math.max(2, Math.floor(100 / aura.odds));
       s.points += reward;
@@ -529,9 +519,7 @@
         s.bestOdds = aura.odds;
       }
 
-      if (["rare", "epic", "legendary", "mythic"].includes(aura.tier)) {
-        s.rareFound = 1;
-      }
+      if (["rare", "epic", "legendary", "mythic"].includes(aura.tier)) s.rareFound = 1;
 
       if (mutation) s.mutations++;
 
@@ -542,9 +530,7 @@
         mutation === "Corrupted" ? "🌀" :
         "🔮";
 
-      document.getElementById("rollResult").innerHTML =
-        `<span class="${aura.tier}">${key}</span>`;
-
+      document.getElementById("rollResult").innerHTML = `<span class="${aura.tier}">${key}</span>`;
       document.getElementById("rollInfo").textContent =
         `${aura.tier.toUpperCase()} · Base odds: 1 in ${fmt(aura.odds)}${isNew ? " · NEW DISCOVERY!" : ""}`;
 
@@ -574,7 +560,6 @@
       s.boosts += 2;
 
       alert(`Daily reward claimed!\n+${fmt(reward)} points\n+2 boost charges\nStreak: ${s.streak} days`);
-
       sound(700);
       saveGame();
       render();
@@ -612,20 +597,8 @@
       render();
     }
 
-    function useBoost() {
-      if (s.boosts <= 0) {
-        alert("No boost charges. Buy some in the shop!");
-        return;
-      }
-      s.boosts--;
-      s.potions++;
-      roll();
-      saveGame();
-    }
-
     function rebirth() {
       const cost = 100000 * Math.pow(5, s.rebirths);
-
       if (s.points < cost) {
         alert("You need " + fmt(cost) + " points to rebirth.");
         return;
@@ -639,7 +612,6 @@
       s.titles.push("Reborn Hunter");
       s.title = "Reborn Hunter";
       s.secrets["Rebirth Phoenix"] = s.rebirths >= 3;
-
       sound(330, 0.4);
       saveGame();
       render();
@@ -647,7 +619,7 @@
     }
 
     function newBoss() {
-      const names = ["The Void Guardian", "Abyssal Colossus", "The Ancient Star", "Chaos Dragon", "Eternal Devourer"];
+      const names = ["The Void Guardian","Abyssal Colossus","The Ancient Star","Chaos Dragon","Eternal Devourer"];
       s.bossName = names[Math.floor(Math.random() * names.length)];
       s.bossHP = 100;
       saveGame();
@@ -720,10 +692,10 @@
     }
 
     function renderIndex() {
-      const q = (document.getElementById("searchAura")?.value || "").toLowerCase();
+      const query = (document.getElementById("searchAura")?.value || "").toLowerCase();
 
       document.getElementById("auraGrid").innerHTML = AURAS
-        .filter(a => a.name.toLowerCase().includes(q))
+        .filter(a => a.name.toLowerCase().includes(query))
         .map(a => {
           const found = Object.values(s.collection).some(x => x.name === a.name);
           return `
@@ -740,4 +712,235 @@
           <b>${s.secrets[a.name] ? a.name : "Hidden Aura"}</b>
           <small>${s.secrets[a.name] ? "Discovered" : a.condition}</small>
         </div>
-      `).
+      `).join("");
+    }
+
+    function renderShop() {
+      const items = [
+        ["boost","🎲 Roll Boost","500","Adds one boost charge."],
+        ["potion","🍀 Luck Potion","1,500","Adds a luck potion to your inventory."],
+        ["luck","✨ Permanent Luck Upgrade","5,000","Permanently increases luck."],
+        ["power","⚔️ Boss Power","2,500","Deal more damage to bosses."]
+      ];
+
+      document.getElementById("shopGrid").innerHTML = items.map(i => `
+        <div class="item">
+          <b>${i[1]}</b>
+          <p class="muted">${i[3]}</p>
+          <p>Cost: ${i[2]} points</p>
+          <button onclick="buy('${i[0]}')">Buy</button>
+        </div>
+      `).join("");
+    }
+
+    function renderQuests() {
+      document.getElementById("questGrid").innerHTML = QUESTS.map(q => {
+        const current = Math.min(q.goal, Number(s[q.field] || 0));
+        const width = (current / q.goal) * 100;
+
+        return `
+          <div class="item">
+            <b>${q.name}</b>
+            <p class="muted">${q.desc}</p>
+            <p>${fmt(current)} / ${fmt(q.goal)}</p>
+            <div class="progress"><span style="width:${width}%"></span></div>
+            <p>Reward: ${fmt(q.reward)} points</p>
+            <small>${s.quests[q.id] ? "Completed" : "In progress"}</small>
+          </div>
+        `;
+      }).join("");
+
+      document.getElementById("achievementGrid").innerHTML = ACHIEVEMENTS.map(a => `
+        <div class="item">
+          <b>${s.achievements[a.id] ? "🏅" : "🔒"} ${a.name}</b>
+          <small>${a.desc}</small>
+        </div>
+      `).join("");
+    }
+
+    function renderRecords() {
+      const recs = [
+        ["Total rolls", fmt(s.rolls)],
+        ["Total points earned", fmt(s.totalEarned)],
+        ["Unique auras", Object.keys(s.collection).length],
+        ["Mutations", s.mutations],
+        ["Boss wins", s.bossWins],
+        ["Daily streak", s.streak + " days"],
+        ["Highest aura", s.best],
+        ["Rebirths", s.rebirths]
+      ];
+
+      document.getElementById("recordGrid").innerHTML = recs.map(r => `
+        <div class="item">
+          <small>${r[0]}</small>
+          <b>${r[1]}</b>
+        </div>
+      `).join("");
+
+      document.getElementById("leaderboard").innerHTML =
+        (s.records || []).slice().sort((a, b) => b.points - a.points).map((r, i) =>
+          `<div class="item">${i + 1}. ${r.name} — ${fmt(r.points)} points</div>`
+        ).join("") || "No saved records yet.";
+    }
+
+    function saveRecord() {
+      s.records.push({
+        name: s.name || "Hunter",
+        points: s.points,
+        rank: getCurrentRank(s.totalEarned),
+        date: new Date().toLocaleDateString()
+      });
+
+      s.records = s.records.slice(-20);
+      saveGame();
+      renderRecords();
+    }
+
+    function renderProfile() {
+      document.getElementById("hunterName").value = s.name || "Hunter";
+      document.getElementById("titleSelect").innerHTML = s.titles.map(t =>
+        `<option ${t === s.title ? "selected" : ""}>${t}</option>`
+      ).join("");
+
+      document.getElementById("profileSummary").textContent =
+        `${s.name} · ${s.title} · Rank ${getCurrentRank(s.totalEarned)}`;
+
+      document.getElementById("badges").innerHTML =
+        ACHIEVEMENTS.filter(a => s.achievements[a.id]).map(a =>
+          `<div class="item">🏅 ${a.name}</div>`
+        ).join("") || "No badges yet. Start hunting!";
+    }
+
+    function chooseTitle() {
+      s.title = document.getElementById("titleSelect").value;
+      saveGame();
+      render();
+    }
+
+    function saveName() {
+      s.name = document.getElementById("hunterName").value.trim() || "Hunter";
+      saveData.playerName = s.name;
+      saveGame();
+      render();
+    }
+
+    function toggleSound() {
+      s.sound = !s.sound;
+      saveGame();
+      render();
+    }
+
+    function toggleAuto() {
+      s.auto = !s.auto;
+
+      if (s.auto) {
+        autoTimer = setInterval(() => {
+          if (s.auto) roll();
+        }, 1500);
+      } else {
+        clearInterval(autoTimer);
+        autoTimer = null;
+      }
+
+      saveGame();
+      render();
+    }
+
+    function exportSave() {
+      const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "aura-hunter-save.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function importSave(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const imported = JSON.parse(reader.result);
+          saveData = {
+            ...defaultSave(),
+            ...imported,
+            modes: {
+              classic: { ...defaultModeState(), ...(imported.modes && imported.modes.classic || {}) },
+              void: { ...defaultModeState(), ...(imported.modes && imported.modes.void || {}) },
+              boss: { ...defaultModeState(), ...(imported.modes && imported.modes.boss || {}) }
+            }
+          };
+
+          saveData.selectedMode = saveData.selectedMode || "classic";
+          s = saveData.modes[saveData.selectedMode];
+          saveGame();
+          render();
+          alert("Save imported!");
+        } catch {
+          alert("Invalid save file.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function resetGame() {
+      if (!confirm("Delete all saved Aura Hunter progress? This cannot be undone.")) return;
+
+      localStorage.removeItem("auraHunterSave");
+      saveData = defaultSave();
+      s = saveData.modes[saveData.selectedMode];
+      saveGame();
+      render();
+      show("lobby");
+    }
+
+    function render() {
+      const currentRank = getCurrentRank(s.totalEarned || 0);
+
+      document.getElementById("points").textContent = fmt(s.points);
+      document.getElementById("rank").textContent = `${currentRank} / 500`;
+      document.getElementById("rebirths").textContent = s.rebirths;
+      document.getElementById("luck").textContent = getLuckValue() + "x";
+      document.getElementById("found").textContent = `${Object.keys(s.collection).length} / 60`;
+      document.getElementById("rolls").textContent = fmt(s.rolls);
+      document.getElementById("best").textContent = s.best;
+      document.getElementById("titleDisplay").textContent = s.title;
+      document.getElementById("autoButton").textContent = "Auto Roll: " + (s.auto ? "ON" : "OFF");
+      document.getElementById("soundButton").textContent = "Sound: " + (s.sound ? "ON" : "OFF");
+      document.getElementById("dailyInfo").textContent =
+        s.daily === new Date().toLocaleDateString()
+          ? "Daily reward claimed today."
+          : "Your daily reward is ready!";
+      document.getElementById("rebirthBonus").textContent = (1 + s.rebirths * 0.5).toFixed(2) + "x";
+      document.getElementById("rebirthCost").textContent = fmt(100000 * Math.pow(5, s.rebirths));
+      document.getElementById("bossName").textContent = s.bossName;
+      document.getElementById("bossHP").textContent = s.bossHP;
+      document.getElementById("bossBar").style.width = Math.max(0, s.bossHP) + "%";
+
+      renderLobby();
+      renderIndex();
+      renderShop();
+      renderQuests();
+      renderRecords();
+      renderProfile();
+    }
+
+    function init() {
+      saveData.selectedMode = saveData.selectedMode || "classic";
+      if (!saveData.modes[saveData.selectedMode]) {
+        saveData.modes[saveData.selectedMode] = defaultModeState();
+      }
+      s = saveData.modes[saveData.selectedMode];
+      s.name = s.name || saveData.playerName || "Hunter";
+      saveGame();
+      render();
+      show("lobby");
+      setInterval(() => saveGame(), 2500);
+    }
+
+    window.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
