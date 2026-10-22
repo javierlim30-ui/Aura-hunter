@@ -134,6 +134,26 @@
       border-color:var(--blue);
       box-shadow:0 0 15px rgba(83,200,255,0.4);
     }
+
+    .aura-card{
+      margin:12px auto 10px;
+      width:min(100%, 320px);
+      min-height:72px;
+      padding:16px 18px;
+      border-radius:14px;
+      background:rgba(12,18,30,0.9);
+      border:2px solid rgba(255,255,255,0.2);
+      box-shadow:0 0 12px rgba(255,255,255,0.08);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:bold;
+      font-size:18px;
+      transition:all 0.12s ease;
+      text-transform:uppercase;
+      letter-spacing:0.06em;
+    }
+
     footer{
       padding:20px;
       color:#8198b8;
@@ -182,8 +202,11 @@
       <h2>Your Aura</h2>
       <div id="orb">🔮</div>
       <div id="rollResult">Ready to hunt?</div>
+      <div id="auraCard" class="aura-card">No Aura</div>
       <p id="rollInfo" class="muted">Every roll has a chance to discover something extraordinary.</p>
+
       <button onclick="roll()" style="font-size:18px;padding:15px 35px">🎲 ROLL AURA</button>
+      <button id="boostAuraBtn" onclick="activateAuraBoost()">⚡ BOOST</button>
       <button onclick="toggleAuto()" id="autoButton">Auto Roll: OFF</button>
       <button onclick="claimDaily()">🎁 Daily Reward</button>
       <button onclick="toggleSound()" id="soundButton">🔊 Sound: ON</button>
@@ -402,6 +425,28 @@
     let autoTimer = null;
     let audioCtx = null;
 
+    const ROLL_COOLDOWN_MS = 100;
+    let auraCooldownUntil = 0;
+    let auraBoostActive = false;
+
+    const auraTierColors = {
+      common: "#d4deeb",
+      uncommon: "#70e59b",
+      rare: "#64baff",
+      epic: "#c69aff",
+      legendary: "#ffd46b",
+      mythic: "#ff79ca"
+    };
+
+    const auraTierGlow = {
+      common: "rgba(212,222,235,0.35)",
+      uncommon: "rgba(112,229,155,0.45)",
+      rare: "rgba(100,186,255,0.55)",
+      epic: "rgba(198,154,255,0.7)",
+      legendary: "rgba(255,212,107,0.75)",
+      mythic: "rgba(255,121,202,0.85)"
+    };
+
     function saveGame() {
       saveData.modes[saveData.selectedMode] = s;
       saveData.playerName = s.name || saveData.playerName || "Hunter";
@@ -482,7 +527,46 @@
       document.getElementById("modeGrid").innerHTML = modeCards;
     }
 
+    function renderAuraCard(name, tier) {
+      const card = document.getElementById("auraCard");
+      if (!card) return;
+
+      const displayName = name || "No Aura";
+      const tierKey = (tier || "common").toLowerCase();
+
+      card.textContent = displayName;
+      card.style.borderColor = auraTierColors[tierKey] || "#d4deeb";
+      card.style.color = auraTierColors[tierKey] || "#d4deeb";
+      card.style.boxShadow = `0 0 26px ${auraTierGlow[tierKey] || "rgba(255,255,255,0.2)"}`;
+      card.style.transform = "scale(1.04)";
+      setTimeout(() => {
+        card.style.transform = "scale(1)";
+      }, 90);
+    }
+
+    function activateAuraBoost() {
+      const boostBtn = document.getElementById("boostAuraBtn");
+      if (!boostBtn) return;
+      if (auraBoostActive) return;
+
+      auraBoostActive = true;
+      boostBtn.disabled = true;
+      boostBtn.textContent = "BOOSTING...";
+      boostBtn.style.opacity = "0.7";
+
+      setTimeout(() => {
+        auraBoostActive = false;
+        boostBtn.disabled = false;
+        boostBtn.textContent = "⚡ BOOST";
+        boostBtn.style.opacity = "1";
+      }, 2000);
+    }
+
     function roll() {
+      const now = Date.now();
+      if (now < auraCooldownUntil) return;
+      auraCooldownUntil = now + ROLL_COOLDOWN_MS;
+
       s.rolls++;
       const effectiveLuck = Number(getLuckValue());
       let pool = AURAS.map(a => ({ ...a, weight: 1 / Math.pow(a.odds, 1 / effectiveLuck) }));
@@ -508,11 +592,13 @@
       const isNew = !s.collection[key];
       s.collection[key] = { name: aura.name, tier: aura.tier, odds: aura.odds, mutation };
 
+      const boostFactor = auraBoostActive ? 2.5 : 1;
+
       if (isNew) s.points += Math.max(5, Math.floor(aura.odds / 3));
 
       const reward = Math.max(2, Math.floor(100 / aura.odds));
-      s.points += reward;
-      s.totalEarned += reward;
+      s.points += Math.round(reward * boostFactor);
+      s.totalEarned += Math.round(reward * boostFactor);
 
       if (aura.odds > s.bestOdds) {
         s.best = aura.name;
@@ -524,15 +610,20 @@
       if (mutation) s.mutations++;
 
       checkSecrets();
-      document.getElementById("orb").textContent =
+
+      const orbIcon =
         mutation === "Rainbow" ? "🌈" :
         mutation === "Golden" ? "🌟" :
         mutation === "Corrupted" ? "🌀" :
         "🔮";
 
+      document.getElementById("orb").textContent = orbIcon;
+
+      renderAuraCard(aura.name, aura.tier);
+
       document.getElementById("rollResult").innerHTML = `<span class="${aura.tier}">${key}</span>`;
       document.getElementById("rollInfo").textContent =
-        `${aura.tier.toUpperCase()} · Base odds: 1 in ${fmt(aura.odds)}${isNew ? " · NEW DISCOVERY!" : ""}`;
+        `${aura.tier.toUpperCase()} · Base odds: 1 in ${fmt(aura.odds)}${isNew ? " · NEW DISCOVERY!" : ""}${auraBoostActive ? " · BOOST ACTIVE!" : ""}`;
 
       sound(aura.odds > 1000000 ? 880 : aura.odds > 10000 ? 660 : 440);
       if (aura.odds > 1000000) sound(1100, 0.3);
@@ -717,7 +808,7 @@
 
     function renderShop() {
       const items = [
-        ["boost","🎲 Roll Boost","500","Adds one boost charge."],
+        ["boost","🎲 Roll Boost","500","Adds one roll boost charge."],
         ["potion","🍀 Luck Potion","1,500","Adds a luck potion to your inventory."],
         ["luck","✨ Permanent Luck Upgrade","5,000","Permanently increases luck."],
         ["power","⚔️ Boss Power","2,500","Deal more damage to bosses."]
